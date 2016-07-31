@@ -40,16 +40,14 @@ end
 def ford_films
   # List the films in which 'Harrison Ford' has appeared.
   execute(<<-SQL)
-  SELECT
-    title
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    actors.name = 'Harrison Ford'
+  select title
+  from movies
+  join castings
+  on castings.movie_id = movies.id
+  join actors
+  on castings.actor_id = actors.id
+  where name = 'Harrison Ford'
+
   SQL
 end
 
@@ -58,32 +56,26 @@ def ford_supporting_films
   # role. [Note: the ord field of casting gives the position of the actor. If
   # ord=1 then this actor is in the starring role]
   execute(<<-SQL)
-  SELECT
-    title
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    actors.name = 'Harrison Ford' AND castings.ord > 1
+  select title
+  from movies
+  join castings
+  on castings.movie_id = movies.id
+  join actors
+  on castings.actor_id = actors.id
+  where name = 'Harrison Ford' and ord != 1
   SQL
 end
 
 def films_and_stars_from_sixty_two
   # List the title and leading star of every 1962 film.
   execute(<<-SQL)
-  SELECT
-    title, name
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    movies.yr = 1962 AND castings.ord = 1
+  select title, name
+  from movies
+  join castings
+  on castings.movie_id = movies.id
+  join actors
+  on castings.actor_id = actors.id
+  where yr = 1962 and ord = 1
   SQL
 end
 
@@ -112,21 +104,17 @@ def travoltas_busiest_years
   # Which were the busiest years for 'John Travolta'? Show the year and the
   # number of movies he made for any year in which he made at least 2 movies.
   execute(<<-SQL)
+  select yr, count(*) as count
+  from movies
+  join castings
+  on castings.movie_id = movies.id
+  join actors
+  on castings.actor_id = actors.id
+  where name = 'John Travolta'
+  group by
+  yr
+  having count(*) >= 2
 
-  SELECT
-    yr, count(title)
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    actors.name = 'John Travolta'
-  GROUP BY
-    yr
-  HAVING
-   count(title) = 2
 
   SQL
 end
@@ -135,48 +123,23 @@ def andrews_films_and_leads
   # List the film title and the leading actor for all of the films 'Julie
   # Andrews' played in.
   execute(<<-SQL)
-  SELECT
-    JULIES_MOVIES.title, STARS.name
-  FROM (
-    SELECT
-     movies.*
-    FROM
-     movies
-    JOIN castings
-    ON movies.id = castings.movie_id
-    JOIN actors
-    ON actors.id = castings.actor_id
-    WHERE
-     actors.name = 'Julie Andrews'
-  ) AS JULIES_MOVIES
-  JOIN (
-    SELECT
-      actors.*, castings.movie_id AS movieid
-    FROM
-      actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-    WHERE
-     castings.ord = 1
-  ) AS STARS
-  ON JULIES_MOVIES.id = STARS.movieid
 
-
-
-  --
-  --   actors
-  --   JOIN castings
-  --   ON actors.id = castings.actor_id
-  --   JOIN movies
-  --   ON movies.id = castings.movie_id
-  -- WHERE
-  --   castings.ord = 1
-  -- GROUP BY
-  --   movies.title, name
-  -- HAVING
-  --   actors.name = 'Julie Andrews'
+  select
+  title, name
+  from
+   (select movies.*
+   from movies
+   join castings
+   on castings.movie_id = movies.id
+   join actors
+   on castings.actor_id = actors.id
+   where name = 'Julie Andrews'
+ )as movies_with_julie
+ join castings
+ on castings.movie_id = movies_with_julie.id
+ join actors
+ on castings.actor_id = actors.id
+ where ord = 1
 
   SQL
 end
@@ -210,23 +173,17 @@ def prolific_actors
   # Obtain a list in alphabetical order of actors who've had at least 15
   # starring roles.
   execute(<<-SQL)
-  SELECT
-    name
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    castings.ord = 1
-  GROUP BY
-    name
-  HAVING
-    count(name) >= 15
-  ORDER BY
-    name
-
+  select name
+  from actors
+  join castings
+  on castings.actor_id = actors.id
+  where ord = 1
+  group by
+  name
+  having
+  count(name) >= 15
+  order by
+  name
   SQL
 end
 
@@ -234,53 +191,38 @@ def films_by_cast_size
   # List the films released in the year 1978 ordered by the number of actors
   # in the cast (descending), then by title (ascending).
   execute(<<-SQL)
-  SELECT
-    title, count(name)
-  FROM
-    actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  WHERE
-    yr = 1978
-  GROUP BY
-    title
-  ORDER BY
-    count(name) DESC, title ASC
+  select title, count(actor_id)
+  from movies
+  join castings
+  on castings.movie_id = movies.id
+  where yr = 1978
+  group by
+  title
+  order by
+  count(actor_id) desc, title asc
+
   SQL
 end
 
 def colleagues_of_garfunkel
   # List all the people who have played alongside 'Art Garfunkel'.
   execute(<<-SQL)
-  SELECT
-    name
-  FROM (
-    SELECT
-     movies.*
-    FROM
-     movies
-    JOIN castings
-    ON movies.id = castings.movie_id
-    JOIN actors
-    ON actors.id = castings.actor_id
-    WHERE
-     actors.name = 'Art Garfunkel'
-  ) AS all_movies_with_art_garfunkel
-  JOIN (
-    SELECT
-      actors.*, castings.movie_id AS movieid
-    FROM
-      actors
-    JOIN castings
-    ON actors.id = castings.actor_id
-    JOIN movies
-    ON movies.id = castings.movie_id
-  ) AS ALL_ACTORS
-  ON all_movies_with_art_garfunkel.id = ALL_ACTORS.movieid
-  WHERE
-    name != 'Art Garfunkel'
+  select name
+  from
+    (select movies.*
+    from
+    movies
+    join castings
+    on castings.movie_id = movies.id
+    join actors
+    on castings.actor_id = actors.id
+    where name = 'Art Garfunkel') as all_movies_with_art_garfunkel
+    join castings
+    on castings.movie_id = all_movies_with_art_garfunkel.id
+    join actors
+    on castings.actor_id = actors.id
+    where name != 'Art Garfunkel'
+
   SQL
 end
 
